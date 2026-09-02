@@ -1,0 +1,20 @@
+# Example Terminal-Bench style task.
+# Each task carries: id, description, instructions, environment, dependencies,
+# starting state, terminal/tool interface, and a verifier.
+task_id: "example-001"
+description: "Find the file that contains the secret token."
+instructions: |
+  A secret token is stored in exactly one file under /home/user. Find the file
+  and print the token to stdout.
+environment:
+  image: "ubuntu:22.04"
+  shell: "/bin/bash"
+dependencies: []
+starting_state: |
+  The directory /home/user contains a mix of text files. Exactly one of them
+  contains a 32-character hexadecimal token.
+interface: "terminal"
+verifier:
+  type: "regex"            # regex | command | script
+  pattern: "[a-f0-9]{32}"
+  success_on: "match"      # match | no_match

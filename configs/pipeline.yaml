@@ -1,0 +1,66 @@
+# Pipeline-wide configuration for the Automated SFT pipeline.
+# See configs/README or docs/architecture.md for a full reference.
+
+pipeline:
+  name: "terminal-bench-sft-v1"
+  seed: 42
+  tasks_dir: "tasks"                 # directory containing Terminal-Bench style task YAMLs
+  output_dir: "artifacts"            # where all pipeline artifacts are written
+  overwrite: false
+
+  # Honest evaluation split: train / validation / held-out test.
+  # The test set is NEVER used to generate training trajectories.
+  splits:
+    train: 0.70
+    validation: 0.15
+    test: 0.15
+
+model:
+  base_model: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  revision: "main"
+  dtype: "bfloat16"
+  trust_remote_code: false
+  # Optional: load from a local path instead of the Hub
+  local_path: null
+
+generation:
+  num_attempts: 4          # multiple attempts per task (a single run is not reliable signal)
+  temperature: 0.7
+  top_p: 0.95
+  max_tokens: 1024
+  max_steps: 30            # cap on tool-call turns per trajectory
+  timeout_seconds: 300
+
+training:
+  output_dir: "artifacts/trained-model"
+  num_epochs: 2
+  per_device_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+  max_seq_length: 2048
+  logging_steps: 10
+  save_steps: 500
+  # LoRA / QLoRA
+  lora:
+    enabled: true
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  qlora: false
+  use_peft: true
+
+cloud:
+  provider: "local"        # local | runpod | modal (add more in src/auto_sft/cloud/)
+  gpu: "A100-80GB"
+  num_gpus: 1
+  timeout_hours: 24
+  # Provider-specific settings can be added here or via env vars.
+
+storage:
+  type: "local"            # local | s3
+  base_dir: "artifacts"
+  bucket: null             # required when type == s3
+  prefix: "auto-sft"
