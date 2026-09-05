@@ -1,0 +1,6 @@
+task_id: git-hunt-001
+category: git-forensics
+difficulty: medium
+timeout_seconds: 600
+entrypoint: /usr/local/bin/setup.sh
+oracle: tests/test_oracle.py

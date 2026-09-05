@@ -1,0 +1,6 @@
+task_id: log-triage-001
+category: log-analysis
+difficulty: medium-hard
+timeout_seconds: 600
+entrypoint: /usr/local/bin/setup.sh
+oracle: tests/test_oracle.py

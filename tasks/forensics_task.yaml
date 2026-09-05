@@ -1,0 +1,53 @@
+task_id: "forensics-001"
+description: "Recover the real 32-char hex token from a maze of decoys with checksums."
+instructions: |
+  Under /srv/vault/ there are 200+ text files across nested directories.
+  Exactly ONE file holds the real token, defined as follows:
+    1. It is a 32-character lowercase hex string ([a-f0-9]{32}).
+    2. Its file's first line is the token itself.
+    3. Its file's second line is the SHA256 checksum of the first line
+       (i.e. `echo -n "<token>" | sha256sum`).
+    4. Its file's mtime is older than 2024-01-01 (decoys are newer).
+  All other files are decoys: valid-looking hex strings but with wrong
+  checksums, wrong mtimes, or uppercase/non-hex characters.
+  Print ONLY the real token to stdout.
+environment:
+  image: "ubuntu:22.04"
+  shell: "/bin/bash"
+dependencies: []
+starting_state: |
+  Run this setup as root before the agent starts:
+    rm -rf /srv/vault && mkdir -p /srv/vault
+    REAL=$(openssl rand -hex 16)
+    SUM=$(echo -n "$REAL" | sha256sum | cut -d' ' -f1)
+    D=$(printf '/srv/vault/layer%02d/sublayer%02d' $((RANDOM % 20)) $((RANDOM % 20)))
+    mkdir -p "$D"
+    printf '%s\n%s\n' "$REAL" "$SUM" > "$D/ledger.dat"
+    touch -d '2023-06-15 10:00:00' "$D/ledger.dat"
+    echo "$REAL" > /root/.real_token
+    chmod 600 /root/.real_token
+    for i in $(seq 1 250); do
+      F=$(printf '/srv/vault/layer%02d/sublayer%02d/decoy_%03d.log' \
+        $((RANDOM % 20)) $((RANDOM % 20)) $i)
+      mkdir -p "$(dirname "$F")"
+      case $((RANDOM % 4)) in
+        0) FAKE=$(openssl rand -hex 16 | tr 'a-f' 'A-F');;
+        1) FAKE=$(openssl rand -hex 15);;
+        2) FAKE=$(openssl rand -hex 16);;
+        *) FAKE="not-a-token-$RANDOM";;
+      esac
+      printf '%s\n%s\n' "$FAKE" "$(openssl rand -hex 32)" > "$F"
+      touch -d '2024-06-01 10:00:00' "$F"
+    done
+  The agent runs as an unprivileged user with read access to /srv/vault
+  but NO access to /root/.real_token.
+interface: "terminal"
+verifier:
+  type: "script"
+  script: |
+    #!/bin/bash
+    # $AGENT_OUTPUT holds the agent's stdout.
+    CANDIDATE=$(echo "$AGENT_OUTPUT" | grep -Eo '[a-f0-9]{32}' | head -n 1)
+    EXPECTED=$(cat /root/.real_token)
+    [ -n "$CANDIDATE" ] && [ "$CANDIDATE" = "$EXPECTED" ]
+  success_on: "zero"

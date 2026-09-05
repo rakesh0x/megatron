@@ -23,7 +23,8 @@ def test_run_smoke_end_to_end(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     tasks = tmp_path / "tasks"
     tasks.mkdir()
-    shutil.copy(ROOT / "examples" / "sample_task.yaml", tasks / "sample_task.yaml")
+    for src in (ROOT / "tasks").glob("*.yaml"):
+        shutil.copy(src, tasks / src.name)
 
     config = tmp_path / "pipeline.yaml"
     config.write_text(

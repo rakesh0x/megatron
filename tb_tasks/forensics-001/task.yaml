@@ -1,0 +1,6 @@
+task_id: forensics-001
+category: forensics
+difficulty: hard
+timeout_seconds: 600
+entrypoint: /usr/local/bin/setup.sh
+oracle: tests/test_oracle.py

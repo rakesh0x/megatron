@@ -1,0 +1,17 @@
+task_id: "dummy-001"
+description: "Smoke-test task: write a known string to a file."
+instructions: |
+  Create the file /tmp/dummy_proof.txt containing exactly one line:
+  DUMMY_OK
+  Then print DUMMY_OK to stdout.
+environment:
+  image: "ubuntu:22.04"
+  shell: "/bin/bash"
+dependencies: []
+starting_state: |
+  Empty workspace. No setup required.
+interface: "terminal"
+verifier:
+  type: "command"
+  command: "grep -qx 'DUMMY_OK' /tmp/dummy_proof.txt"
+  success_on: "zero"

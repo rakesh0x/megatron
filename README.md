@@ -114,3 +114,31 @@ The test suite and lint stay green as part of the workflow — not an afterthoug
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+tasks/ + tb_tasks/          ← human-authored ground truth
+        │
+        ▼
+┌───────────────┐
+│ 1. INGESTION   │  read task specs, seeded train/val/test split
+│    (runner.py) │  test split NEVER generates trajectories
+└───────┬───────┘
+        ▼
+┌───────────────┐
+│ 2. GENERATION  │  OpenHands agent attempts each train/val task
+│  (STUB today)  │  N attempts × M tasks → trajectories/*.json
+└───────┬───────┘  oracle (tests/test_oracle.py) marks success/fail
+        ▼
+┌───────────────┐
+│ 3. DATASET     │  keep successes → SFT chat examples
+│  (STUB today)  │
+└───────┬───────┘
+        ▼
+┌───────────────┐
+│ 4. TRAINING    │  LoRA fine-tune (Qwen2.5-Coder-7B) via HF/TRL
+│  (STUB today)  │
+└───────┬───────┘
+        ▼
+┌───────────────┐
+│ 5. EXPORT      │  push model + artifacts (local/S3)
+│  (STUB today)  │
+└───────────────┘

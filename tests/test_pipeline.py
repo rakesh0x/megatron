@@ -16,7 +16,7 @@ def _config(tmp_path: Path) -> AppConfig:
         {
             "pipeline": {
                 "name": "smoke-test",
-                "tasks_dir": str(ROOT / "examples"),
+                "tasks_dir": str(ROOT / "tasks"),
                 "seed": 7,
             },
             "storage": {"type": "local", "base_dir": str(tmp_path / "artifacts")},
@@ -34,8 +34,8 @@ def test_smoke_run_writes_manifest(tmp_path):
     manifest = json.loads(
         (tmp_path / "artifacts" / "pipeline" / "manifest.json").read_text()
     )
-    assert manifest["task_count"] == 1
-    assert manifest["splits"]["train"] == ["example-001"]
+    assert manifest["task_count"] == 2
+    assert sorted(manifest["splits"]["train"]) == ["dummy-001", "forensics-001"]
 
 
 def test_smoke_run_tolerates_missing_tasks_dir(tmp_path, monkeypatch):
