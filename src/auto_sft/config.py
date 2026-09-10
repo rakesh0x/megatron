@@ -46,6 +46,15 @@ class GenerationConfig(BaseModel):
     max_tokens: int = 1024
     max_steps: int = 30
     timeout_seconds: int = 300
+    # Rollout model: LiteLLM id used by the agent harness. Defaults to the
+    # fine-tune base model (self-distillation); override for a teacher model
+    # (e.g. "openrouter/z-ai/glm-5.2:free") or local Ollama ("ollama/...").
+    model: str | None = None
+    # Endpoint override; defaults to OPENHANDS_BASE_URL env (auto localhost
+    # for ollama/ models). Cloud GPU vLLM URL goes here.
+    base_url: str | None = None
+    # Env var holding the rollout API key (unset = keyless, e.g. Ollama).
+    api_key_env: str = "OPENHANDS_LLM_API_KEY"
 
 
 class LoraConfig(BaseModel):
@@ -67,6 +76,13 @@ class LoraConfig(BaseModel):
 
 
 class TrainingConfig(BaseModel):
+    # Objective: "sft" (supervised, behavior cloning on successes),
+    # "dpo" (preference learning on success-vs-failure pairs),
+    # "grpo" (online RL scored by task verifiers).
+    method: Literal["sft", "dpo", "grpo"] = "sft"
+    # Scan trajectories for unsafe content (secrets, destructive commands)
+    # and drop flagged examples before training.
+    safety_scan: bool = False
     output_dir: str = "artifacts/trained-model"
     num_epochs: int = 2
     per_device_batch_size: int = 1
@@ -80,6 +96,10 @@ class TrainingConfig(BaseModel):
     lora: LoraConfig = Field(default_factory=LoraConfig)
     qlora: bool = False
     use_peft: bool = True
+    # DPO-only: KL strength against the reference model.
+    dpo_beta: float = 0.1
+    # GRPO-only: generations sampled per prompt per update.
+    grpo_num_generations: int = 8
 
 
 class CloudConfig(BaseModel):

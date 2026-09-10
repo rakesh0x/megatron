@@ -125,12 +125,12 @@ tasks/ + tb_tasks/          ← human-authored ground truth
         ▼
 ┌───────────────┐
 │ 2. GENERATION  │  OpenHands agent attempts each train/val task
-│  (STUB today)  │  N attempts × M tasks → trajectories/*.json
+│  (today)  │  N attempts × M tasks → trajectories/*.json
 └───────┬───────┘  oracle (tests/test_oracle.py) marks success/fail
         ▼
 ┌───────────────┐
 │ 3. DATASET     │  keep successes → SFT chat examples
-│  (STUB today)  │
+│  ( today)  │
 └───────┬───────┘
         ▼
 ┌───────────────┐

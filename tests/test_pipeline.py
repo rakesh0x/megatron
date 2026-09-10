@@ -24,11 +24,23 @@ def _config(tmp_path: Path) -> AppConfig:
     )
 
 
-def test_smoke_run_writes_manifest(tmp_path):
+def test_smoke_run_writes_manifest(tmp_path, monkeypatch):
+    from auto_sft.models.trajectory import Message, Trajectory
+
+    def fake_run_task(task, **kwargs):
+        return Trajectory(
+            tool_id="test",
+            model_id="test-model",
+            task_id=task.task_id,
+            attempt=kwargs.get("attempt", 0),
+            messages=[Message(role="assistant", content=" proves DUMMY_OK")],
+        )
+
+    monkeypatch.setattr("auto_sft.harness.run_task", fake_run_task)
     runner = PipelineRunner(_config(tmp_path))
     summary = runner.run(smoke=True)
     assert summary["pipeline"] == "smoke-test"
-    assert summary["stages"]["generate_trajectories"]["status"] == "stub"
+    assert summary["stages"]["generate_trajectories"]["status"] == "ok"
     assert summary["stages"]["train"]["status"] == "stub"
 
     manifest = json.loads(
@@ -39,8 +51,8 @@ def test_smoke_run_writes_manifest(tmp_path):
 
 
 def test_smoke_run_tolerates_missing_tasks_dir(tmp_path, monkeypatch):
-    # The smoke fallback to "examples/" is CWD-relative (repo-root friendly);
-    # isolate CWD so the fallback cannot find the repo's examples dir.
+    # The smoke run tolerates a missing tasks_dir (CWD-relative);
+    # isolate CWD so nothing on disk can satisfy the configured dir.
     monkeypatch.chdir(tmp_path)
     cfg = AppConfig.model_validate(
         {

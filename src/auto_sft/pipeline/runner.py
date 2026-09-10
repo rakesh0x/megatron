@@ -1,6 +1,6 @@
-"""Pipeline runner skeleton for stage 1.
+"""Pipeline runner.
 
-The runner owns the pipeline lifecycle. In stage 1 it:
+The runner owns the pipeline lifecycle. It:
 
 - validates and normalises the pipeline configuration,
 - prepares the artifact store and the output workspace,
@@ -8,9 +8,11 @@ The runner owns the pipeline lifecycle. In stage 1 it:
 - computes honest train / validation / test splits,
 - records a per-stage report and writes pipeline metadata into the store.
 
-Trajectory generation, dataset building, SFT training and artifact export
-are declared as *stubs*: they keep the pipeline shape (and the run report)
-stable from day one, and are implemented by later stages.
+Trajectory generation runs standalone via ``auto-sft run-task`` (see
+``src/auto_sft/harness.py``); dataset building, SFT training and artifact
+export are declared as *stubs* until they are implemented: they keep the
+pipeline shape (and the run report) stable, and are filled in milestone
+by milestone.
 """
 
 from __future__ import annotations
@@ -41,7 +43,7 @@ class StageReport:
 
     def __init__(self, name: str, status: str, detail: str = "") -> None:
         self.name = name
-        self.status = status  # "ok" | "stub" | "skipped"
+        self.status = status  # "ok" | "stub" | "skipped" | "error"
         self.detail = detail
 
     def as_dict(self) -> dict[str, str]:
@@ -54,11 +56,15 @@ class PipelineRunner:
     # Stages implemented by later milestones; declared now so the pipeline
     # shape and the run report stay stable.
     STUB_STAGES = (
-        "generate_trajectories",
         "build_dataset",
         "train",
         "export_artifacts",
     )
+    STUB_HINTS = {  # noqa: RUF012 - constant, never mutated
+        "build_dataset": "not implemented yet",
+        "train": "not implemented yet",
+        "export_artifacts": "not implemented yet",
+    }
 
     def __init__(self, config: AppConfig, store: ArtifactStore | None = None) -> None:
         self.config = config
@@ -97,16 +103,36 @@ class PipelineRunner:
         )
 
         n_train, n_valid, n_test = self._split_tasks(tasks)
+        split_detail = f"train={n_train} validation={n_valid} test={n_test}"
+        if tasks and (n_valid == 0 or n_test == 0):
+            split_detail += " (warning: empty split — add more tasks)"
+            log.warning(
+                "split produced empty validation/test sets with %d task(s); "
+                "add more tasks for honest evaluation",
+                len(tasks),
+            )
         self.reports.append(
             StageReport(
                 "split_tasks",
                 "ok" if tasks else "skipped",
-                f"train={n_train} validation={n_valid} test={n_test}",
+                split_detail,
             )
         )
 
+        try:
+            from auto_sft.stages.generate import run_generation
+
+            self.reports.append(
+                run_generation(self.config, self.tasks, self.splits, self.store)
+            )
+        except Exception as exc:  # noqa: BLE001 - report failure, don't crash
+            log.warning("generation stage failed: %s", exc)
+            self.reports.append(StageReport("generate_trajectories", "error", str(exc)))
+
         for name in self.STUB_STAGES:
-            self.reports.append(StageReport(name, "stub", "not implemented in stage 1"))
+            self.reports.append(
+                StageReport(name, "stub", self.STUB_HINTS.get(name, "not implemented yet"))
+            )
 
         self._write_manifest(smoke=smoke)
         self._print_report()
@@ -139,14 +165,9 @@ class PipelineRunner:
         return f"store={type(self.store).__name__}"
 
     def _load_tasks(self, *, smoke: bool) -> list[Task]:
-        candidates = [self.config.pipeline.tasks_dir]
-        if smoke:
-            # Allow a bare checkout to exercise the skeleton end-to-end.
-            candidates.append("examples")
-        for directory in candidates:
-            path = Path(directory)
-            if path.exists() and path.is_dir():
-                return self._read_tasks(path)
+        path = Path(self.config.pipeline.tasks_dir)
+        if path.exists() and path.is_dir():
+            return self._read_tasks(path)
         if smoke:
             return []
         raise PipelineError(
@@ -210,7 +231,7 @@ class PipelineRunner:
         table.add_column("stage", style="bold")
         table.add_column("status")
         table.add_column("detail")
-        colors = {"ok": "green", "stub": "yellow", "skipped": "grey70"}
+        colors = {"ok": "green", "stub": "yellow", "skipped": "grey70", "error": "red"}
         for report in self.reports:
             color = colors.get(report.status, "white")
             table.add_row(

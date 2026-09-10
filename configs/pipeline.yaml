@@ -30,8 +30,21 @@ generation:
   max_tokens: 1024
   max_steps: 30            # cap on tool-call turns per trajectory
   timeout_seconds: 300
+  # Rollout model for `auto-sft run` generation (LiteLLM id). Null = reuse
+  # model.base_model (self-distillation). Examples: "openrouter/z-ai/glm-5.2:free",
+  # "ollama/qwen2.5-coder:7b" (local, no key needed).
+  model: null
+  # Endpoint override; null = OPENHANDS_BASE_URL env (auto localhost for ollama/).
+  base_url: null
+  # Env var holding the rollout API key.
+  api_key_env: "OPENHANDS_LLM_API_KEY"
 
 training:
+  # Objective: sft | dpo | grpo. SFT clones successes; DPO learns
+  # success-vs-failure preferences; GRPO is online RL vs verifiers.
+  method: "sft"
+  # Drop trajectories flagged for unsafe content before training.
+  safety_scan: false
   output_dir: "artifacts/trained-model"
   num_epochs: 2
   per_device_batch_size: 1
@@ -51,6 +64,9 @@ training:
     target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
   qlora: false
   use_peft: true
+  # DPO-only (method: dpo) / GRPO-only (method: grpo) knobs.
+  dpo_beta: 0.1
+  grpo_num_generations: 8
 
 cloud:
   provider: "local"        # local | runpod | modal (add more in src/auto_sft/cloud/)

@@ -123,12 +123,35 @@ def run_task(
     from openhands.sdk import LLM, LocalConversation
     from openhands.tools import get_default_agent
 
+    # Pick credentials matching the model provider: a bare "gpt-..." id
+    # routes to OpenAI, so it must NOT receive the OpenRouter key, etc.
+    provider_keys = [
+        ("openrouter/", ["OPENROUTER_API_KEY"]),
+        ("gpt-", ["OPENAI_API_KEY"]),
+        ("o1", ["OPENAI_API_KEY"]),
+        ("o3", ["OPENAI_API_KEY"]),
+        ("openai/", ["OPENAI_API_KEY"]),
+        ("claude-", ["ANTHROPIC_AUTH_TOKEN"]),
+        ("anthropic/", ["ANTHROPIC_AUTH_TOKEN"]),
+        ("ollama/", []),  # local server needs no key
+    ]
     key = api_key or os.environ.get("OPENHANDS_LLM_API_KEY") or os.environ.get("LLM_API_KEY")
+    if key is None:
+        for prefix, names in provider_keys:
+            if model.startswith(prefix):
+                for name in names:
+                    if os.environ.get(name):
+                        key = os.environ[name]
+                        break
+                break
     llm_kwargs: dict[str, Any] = {"model": model}
     if key:
         llm_kwargs["api_key"] = key
-    if base_url or os.environ.get("OPENHANDS_BASE_URL"):
-        llm_kwargs["base_url"] = base_url or os.environ["OPENHANDS_BASE_URL"]
+    url = base_url or os.environ.get("OPENHANDS_BASE_URL")
+    if not url and model.startswith("ollama/"):
+        url = "http://localhost:11434"
+    if url:
+        llm_kwargs["base_url"] = url
     llm = LLM(**llm_kwargs)
     agent = get_default_agent(llm)
 

@@ -20,7 +20,15 @@ def test_no_args_shows_help():
 
 
 def test_run_smoke_end_to_end(tmp_path, monkeypatch):
+    from auto_sft.models.trajectory import Trajectory
+
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "auto_sft.harness.run_task",
+        lambda task, **kwargs: Trajectory(
+            tool_id="test", model_id="m", task_id=task.task_id
+        ),
+    )
     tasks = tmp_path / "tasks"
     tasks.mkdir()
     for src in (ROOT / "tasks").glob("*.yaml"):
